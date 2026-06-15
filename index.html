@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>IrriCheck — Agricef</title>
-<!-- APP VERSION: 1.0.3 -->
+<!-- APP VERSION: 1.0.4 -->
 <meta name="description" content="Avaliação de assertividade e espaçamento do irrigador de mudas de eucalipto">
 <meta name="theme-color" content="#2d6a1f">
 <meta name="mobile-web-app-capable" content="yes">
@@ -991,27 +991,82 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
         </div>
       </div>`;
 
-    document.getElementById('resumo-body').innerHTML = `
-      <!-- SCREEN: per-line charts + global -->
-      <!-- PAGE 1: PER-LINE ASSERTIVIDADE -->
-      <div class="print-page">
-        ${pdfHeader('Página 1 / ' + (nLines>1?'4':'3'), 'Assertividade por Linha', fmtDate(data)+' · '+cliente+' · '+talhao)}
-        ${metaBlock}
-        <div class="total-summary">Total geral: <strong>${total}</strong> plantas</div>
+    // Build per-line HTML
+    let perLineHTML = '';
+    for (let li = 0; li < nLines; li++) {
+      const lname = lineNames[li];
+      const lTotal = getLineCount(li);
+      const lCards = fields.map(f => {
+        const cnt = (counts[li] && counts[li][f.id]) || 0;
+        const pct = lTotal > 0 ? Math.round(cnt / lTotal * 100) : 0;
+        return '<div class="res-card" style="background:' + hex2rgba(f.color,0.12) + '">' +
+          '<div class="n" style="color:' + f.color + '">' + cnt + '</div>' +
+          '<div class="p" style="color:' + f.color + '">' + pct + '%</div>' +
+          '<div class="l" style="color:' + f.color + '">' + (f.name||'—') + '</div>' +
+          '</div>';
+      }).join('');
+      perLineHTML += '<div style="margin-bottom:14px">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px">' +
+          '<span style="font-size:13px;font-weight:700;color:var(--green-mid);letter-spacing:.06em;text-transform:uppercase">' + lname + '</span>' +
+          '<span style="flex:1;height:1px;background:var(--border)"></span>' +
+          '<span style="font-size:12px;color:var(--text2)">' + lTotal + ' plantas</span>' +
+        '</div>' +
+        '<div class="res-grid">' + lCards + '</div>' +
+        (lTotal > 0 ? '<div class="chart-card"><div class="chart-title">' + lname + ' — Distribuição</div><div class="pie-wrap"><canvas id="chart-pie-' + li + '"></canvas></div></div>' : '') +
+        '</div>';
+    }
 
-        ${nLines === 1 ? `
-          <div class="res-grid">${cardsHTML}</div>
-          ${total>0?`<div class="chart-card"><div class="chart-title">Central — Distribuição</div><div class="pie-wrap"><canvas id="chart-pie-0"></canvas></div></div>`:''}
-        ` : lineNames.map((lname, li) => {
-          const lTotal = getLineCount(li);
-          const lCards = fields.map(f=>{
-            const cnt=(counts[li]&&counts[li][f.id])||0;
-            const pct=lTotal>0?Math.round(cnt/lTotal*100):0;
-            return `<div class="res-card" style="background:${hex2rgba(f.color,0.12)}">
-              <div class="n" style="color:${f.color}">${cnt}</div>
-              <div class="p" style="color:${f.color}">${pct}%</div>
-              <div class="l" style="color:${f.color}">${f.name||'—'}</div>
-            </div>`;
+    const totalPages = nLines > 1 ? 4 : 3;
+    const page2label = nLines > 1 ? 3 : 2;
+    const page3label = nLines > 1 ? 4 : 3;
+
+    document.getElementById('resumo-body').innerHTML =
+      '<!-- PAGE 1: PER-LINE ASSERTIVIDADE -->' +
+      '<div class="print-page">' +
+        pdfHeader('Página 1 / ' + totalPages, 'Assertividade por Linha', fmtDate(data) + ' · ' + cliente + ' · ' + talhao) +
+        metaBlock +
+        '<div class="total-summary">Total geral: <strong>' + total + '</strong> plantas</div>' +
+        perLineHTML +
+      '</div>' +
+
+      (nLines > 1 ?
+        '<!-- PAGE 2: GLOBAL ASSERTIVIDADE -->' +
+        '<div class="print-page">' +
+          pdfHeader('Página 2 / 4', 'Assertividade Global', fmtDate(data) + ' · ' + cliente) +
+          '<div class="total-summary">Total geral: <strong>' + total + '</strong> plantas</div>' +
+          '<div class="res-grid">' + cardsHTML + '</div>' +
+          (total > 0 ? '<div class="chart-card"><div class="chart-title">Global — Distribuição (todas as linhas)</div><div class="pie-wrap"><canvas id="chart-pie-global"></canvas></div></div>' : '') +
+          lineBreakdownHTML +
+        '</div>'
+      : '') +
+
+      '<!-- PAGE ' + page2label + ': ESPAÇAMENTO ENTRE LINHAS -->' +
+      '<div class="print-page">' +
+        pdfHeader('Página ' + page2label + ' / ' + totalPages, 'Espaçamento entre Linhas', fmtDate(data) + ' · ' + cliente) +
+        statsCardHTML(spL, limL) +
+        (spL ? '<div class="chart-card"><div class="chart-title">Medições — entre linhas (cm)</div><canvas id="chart-linhas"></canvas></div>' : '<p style="color:var(--text2);font-size:14px">Nenhuma medição registrada.</p>') +
+      '</div>' +
+
+      '<!-- PAGE ' + page3label + ': ESPAÇAMENTO ENTRE PLANTAS -->' +
+      '<div class="print-page">' +
+        pdfHeader('Página ' + page3label + ' / ' + totalPages, 'Espaçamento entre Plantas', fmtDate(data) + ' · ' + cliente) +
+        statsCardHTML(spP, limP) +
+        (spP ? '<div class="chart-card"><div class="chart-title">Medições — entre plantas (cm)</div><canvas id="chart-plantas"></canvas></div>' : '<p style="color:var(--text2);font-size:14px">Nenhuma medição registrada.</p>') +
+      '</div>' +
+
+      '<div class="screen-only">' +
+        '<div class="divider"></div>' +
+        '<div class="section-header">Exportar e Compartilhar</div>' +
+        '<div class="action-grid">' +
+          '<button class="action-btn btn-csv" id="btn-csv"><span class="btn-icon">📄</span>Baixar CSV</button>' +
+          '<button class="action-btn btn-wa" id="btn-wa"><span class="btn-icon">💬</span>WhatsApp</button>' +
+        '</div>' +
+        '<div class="action-grid" style="margin-top:10px">' +
+          '<button class="action-btn btn-share-csv" id="btn-share-csv"><span class="btn-icon">📤</span>Compartilhar CSV</button>' +
+          '<button class="action-btn btn-share-pdf" id="btn-share-pdf"><span class="btn-icon">🖨️</span>Gerar PDF</button>' +
+        '</div>' +
+        '<div class="share-status" id="share-status"></div>' +
+      '</div>';
           }).join('');
           return `
             <div style="margin-bottom:14px">

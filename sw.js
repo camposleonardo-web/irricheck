@@ -1,5 +1,5 @@
 // Mude este número a cada atualização do app
-const VERSION = '1.0.5';
+const VERSION = '1.0.6';
 const CACHE = 'irricheck-' + VERSION;
 
 const FILES = [

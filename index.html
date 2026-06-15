@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>IrriCheck — Agricef</title>
-<!-- APP VERSION: 1.0.5 -->
+<!-- APP VERSION: 1.0.6 -->
 <meta name="description" content="Avaliação de assertividade e espaçamento do irrigador de mudas de eucalipto">
 <meta name="theme-color" content="#2d6a1f">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1070,67 +1070,7 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
         '</div>' +
         '<div class="share-status" id="share-status"></div>' +
       '</div>';
-          }).join('');
-          return `
-            <div style="margin-bottom:14px">
-              <div class="section-header" style="display:flex;align-items:center;gap:8px;margin:14px 0 8px">
-                <span style="font-size:13px;font-weight:700;color:var(--green-mid);letter-spacing:.06em;text-transform:uppercase">${lname}</span>
-                <span style="flex:1;height:1px;background:var(--border)"></span>
-                <span style="font-size:12px;color:var(--text2)">${lTotal} plantas</span>
-              </div>
-              <div class="res-grid">${lCards}</div>
-              ${lTotal>0?`<div class="chart-card"><div class="chart-title">${lname} — Distribuição</div><div class="pie-wrap"><canvas id="chart-pie-${li}"></canvas></div></div>`:''}
-            </div>`;
-        }).join('')}
-      </div>
-
-      <!-- PAGE 2 (if >1 line): GLOBAL ASSERTIVIDADE -->
-      ${nLines > 1 ? `
-      <div class="print-page">
-        ${pdfHeader('Página 2 / 4', 'Assertividade Global', fmtDate(data)+' · '+cliente)}
-        <div class="total-summary">Total geral: <strong>${total}</strong> plantas</div>
-        <div class="res-grid">${cardsHTML}</div>
-        ${total>0?`<div class="chart-card"><div class="chart-title">Global — Distribuição (todas as linhas)</div><div class="pie-wrap"><canvas id="chart-pie-global"></canvas></div></div>`:''}
-        ${lineBreakdownHTML}
-      </div>` : ''}
-
-      <!-- PAGE 3: ESPAÇAMENTO ENTRE LINHAS -->
-      <div class="print-page">
-        ${pdfHeader('Página '+(nLines>1?'3':'2')+' / '+(nLines>1?'4':'3'), 'Espaçamento entre Linhas', fmtDate(data)+' · '+cliente)}
-        ${statsCardHTML(spL,limL)}
-        ${spL?`<div class="chart-card"><div class="chart-title">Medições — entre linhas (cm)</div><canvas id="chart-linhas"></canvas></div>`:'<p style="color:var(--text2);font-size:14px">Nenhuma medição registrada.</p>'}
-      </div>
-
-      <!-- PAGE 4: ESPAÇAMENTO ENTRE PLANTAS -->
-      <div class="print-page">
-        ${pdfHeader('Página '+(nLines>1?'4':'3')+' / '+(nLines>1?'4':'3'), 'Espaçamento entre Plantas', fmtDate(data)+' · '+cliente)}
-        ${statsCardHTML(spP,limP)}
-        ${spP?`<div class="chart-card"><div class="chart-title">Medições — entre plantas (cm)</div><canvas id="chart-plantas"></canvas></div>`:'<p style="color:var(--text2);font-size:14px">Nenhuma medição registrada.</p>'}
-      </div>
-
-      <!-- SCREEN-ONLY: export buttons -->
-      <div class="screen-only">
-        <div class="divider"></div>
-        <div class="section-header">Exportar e Compartilhar</div>
-        <div class="action-grid">
-          <button class="action-btn btn-csv" id="btn-csv">
-            <span class="btn-icon">📄</span>Baixar CSV
-          </button>
-          <button class="action-btn btn-wa" id="btn-wa">
-            <span class="btn-icon">💬</span>WhatsApp
-          </button>
-        </div>
-        <div class="action-grid" style="margin-top:10px">
-          <button class="action-btn btn-share-csv" id="btn-share-csv">
-            <span class="btn-icon">📤</span>Compartilhar CSV
-          </button>
-          <button class="action-btn btn-share-pdf" id="btn-share-pdf">
-            <span class="btn-icon">🖨️</span>Gerar PDF
-          </button>
-        </div>
-        <div class="share-status" id="share-status"></div>
-      </div>`;
-
+    
     requestAnimationFrame(() => {
       // Build per-line pie charts
       for (let li = 0; li < nLines; li++) {
@@ -1280,8 +1220,11 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
     hist.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id;
-      const total = s.fields.reduce((a,f)=>a+f.count,0);
-      opt.textContent = `${fmtDate(s.data)} · ${s.cliente||'s/cliente'} · ${s.talhao||'s/talhão'}${s.clone?' · '+s.clone:''} · ${total} plantas`;
+      const total = s.counts
+        ? Object.values(s.counts).reduce((a,line) => a + Object.values(line).reduce((b,v)=>b+v,0), 0)
+        : s.fields.reduce((a,f) => a+(f.count||0), 0);
+      const cloneStr = s.clone ? ' · ' + s.clone : '';
+      opt.textContent = fmtDate(s.data) + ' · ' + (s.cliente||'s/cliente') + ' · ' + (s.talhao||'s/talhão') + cloneStr + ' · ' + total + ' plantas';
       sel.appendChild(opt);
     });
   }
@@ -1336,108 +1279,106 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
     if (!snap) return;
     const det = document.getElementById('history-detail');
     det.innerHTML = '';
-    // Render resumo-style view using snapshot data
-    const total = snap.fields.reduce((a,f)=>{
-      const cnt = snap.counts
-        ? Object.keys(snap.counts).reduce((s,l)=>s+((snap.counts[l]&&snap.counts[l][f.id])||0),0)
-        : (f.count||0);
-      return a+cnt;
-    },0);
-    // Rebuild totalByField from snap.counts or legacy snap.fields.count
+
     const snapCounts = snap.counts || {};
     const snapNLines = parseInt(snap.linhas)||1;
     const snapLineNames = LINE_NAMES[snapNLines]||LINE_NAMES[1];
-    const snapTotalByField = {};
-    snap.fields.forEach(f=>{
-      if (snap.counts) {
-        snapTotalByField[f.id] = Object.keys(snap.counts).reduce((s,l)=>s+((snap.counts[l]&&snap.counts[l][f.id])||0),0);
-      } else {
-        snapTotalByField[f.id] = f.count||0;
-      }
+
+    // Total
+    const total = snap.fields.reduce((a,f) => {
+      const cnt = snap.counts
+        ? Object.keys(snap.counts).reduce((s,l) => s+((snap.counts[l]&&snap.counts[l][f.id])||0), 0)
+        : (f.count||0);
+      return a + cnt;
+    }, 0);
+
+    // Cards HTML (string concat)
+    let cardsHTML = '';
+    snap.fields.forEach(f => {
+      const cnt = snap.counts
+        ? Object.keys(snap.counts).reduce((s,l) => s+((snap.counts[l]&&snap.counts[l][f.id])||0), 0)
+        : (f.count||0);
+      const pct = total > 0 ? Math.round(cnt/total*100) : 0;
+      cardsHTML += '<div class="res-card" style="background:' + hex2rgba(f.color,0.12) + '">' +
+        '<div class="n" style="color:' + f.color + '">' + cnt + '</div>' +
+        '<div class="p" style="color:' + f.color + '">' + pct + '%</div>' +
+        '<div class="l" style="color:' + f.color + '">' + (f.name||'—') + '</div></div>';
     });
 
-    const cardsHTML = snap.fields.map(f => {
-      const cnt = snapTotalByField[f.id]||0;
-      const pct = total>0?Math.round(cnt/total*100):0;
-      return `<div class="res-card" style="background:${hex2rgba(f.color,0.12)}">
-        <div class="n" style="color:${f.color}">${cnt}</div>
-        <div class="p" style="color:${f.color}">${pct}%</div>
-        <div class="l" style="color:${f.color}">${f.name||'—'}</div>
-      </div>`;
-    }).join('');
+    // Per-line breakdown (string concat)
+    let histLineBreak = '';
+    if (snapNLines > 1) {
+      let headerRow = '<div class="sp-stat-row"><span class="k" style="font-weight:700">Classificação</span></div>';
+      snapLineNames.forEach(n => {
+        headerRow += '<div class="sp-stat-row"><span class="k" style="font-weight:700;color:var(--green)">' + n + '</span></div>';
+      });
+      let dataRows = '';
+      snap.fields.forEach(f => {
+        dataRows += '<div class="sp-stat-row"><span class="k" style="color:' + f.color + '">' + f.name + '</span></div>';
+        snapLineNames.forEach(function(_, li) {
+          const v = (snapCounts[li] && snapCounts[li][f.id]) || 0;
+          dataRows += '<div class="sp-stat-row"><span class="v">' + v + '</span></div>';
+        });
+      });
+      const cols = '1fr' + ' 1fr'.repeat(snapNLines);
+      histLineBreak = '<div class="sp-stats-card" style="margin-top:10px">' +
+        '<div style="display:grid;grid-template-columns:' + cols + ';gap:0">' +
+        headerRow + dataRows + '</div></div>';
+    }
 
-    const histLineBreak = snapNLines>1?`
-      <div class="sp-stats-card" style="margin-top:10px">
-        <div style="display:grid;grid-template-columns:1fr ${' 1fr'.repeat(snapNLines)};gap:0">
-          <div class="sp-stat-row"><span class="k" style="font-weight:700">Classificação</span></div>
-          ${snapLineNames.map(n=>`<div class="sp-stat-row"><span class="k" style="font-weight:700;color:var(--green)">${n}</span></div>`).join('')}
-          ${snap.fields.map(f=>`
-            <div class="sp-stat-row"><span class="k" style="color:${f.color}">${f.name}</span></div>
-            ${snapLineNames.map((_,li)=>`<div class="sp-stat-row"><span class="v">${(snapCounts[li]&&snapCounts[li][f.id])||0}</span></div>`).join('')}
-          `).join('')}
-        </div>
-      </div>`:'';
-
+    // Spacing stats
     const limP = { sup: parseFloat(snap.limPlantasSup)||null, inf: parseFloat(snap.limPlantasInf)||null };
     const limL = { sup: parseFloat(snap.limLinhasSup)||null,  inf: parseFloat(snap.limLinhasInf)||null };
     const spP = calcStats(snap.espPlantas);
     const spL = calcStats(snap.espLinhas);
 
-    function statsCardHTML(sp, lim) {
-      if (!sp) return `<p style="font-size:14px;color:var(--text2);padding:8px 0">Nenhuma medição registrada.</p>`;
-      const outN = sp.vals.filter(v=>isOutOfRange(v,lim)).length;
-      const hasLim = lim.sup!==null||lim.inf!==null;
-      return `<div class="sp-stats-card">
-        <div class="sp-stat-row"><span class="k">Média</span><span class="v">${sp.avg} cm</span></div>
-        <div class="sp-stat-row"><span class="k">Mínimo</span><span class="v ${lim.inf!==null&&sp.min<lim.inf?'out':''}">${sp.min} cm</span></div>
-        <div class="sp-stat-row"><span class="k">Máximo</span><span class="v ${lim.sup!==null&&sp.max>lim.sup?'out':''}">${sp.max} cm</span></div>
-        <div class="sp-stat-row"><span class="k">Medições</span><span class="v">${sp.n}</span></div>
-        ${hasLim?`<div class="sp-stat-row"><span class="k">Fora dos limites</span><span class="v ${outN>0?'out':''}">${outN} de ${sp.n}</span></div>`:''}
-        ${lim.sup!==null?`<div class="sp-stat-row"><span class="k" style="color:#2a7a20">▲ Lim. superior</span><span class="v" style="color:#2a7a20">${lim.sup} cm</span></div>`:''}
-        ${lim.inf!==null?`<div class="sp-stat-row"><span class="k" style="color:#b02020">▼ Lim. inferior</span><span class="v" style="color:#b02020">${lim.inf} cm</span></div>`:''}
-      </div>`;
+    function spCard(sp, lim) {
+      if (!sp) return '<p style="font-size:14px;color:var(--text2);padding:8px 0">Nenhuma medição registrada.</p>';
+      const outN = sp.vals.filter(v => isOutOfRange(v,lim)).length;
+      const hasLim = lim.sup!==null || lim.inf!==null;
+      let r = '<div class="sp-stats-card">' +
+        '<div class="sp-stat-row"><span class="k">Média</span><span class="v">' + sp.avg + ' cm</span></div>' +
+        '<div class="sp-stat-row"><span class="k">Mínimo</span><span class="v' + (lim.inf!==null&&sp.min<lim.inf?' out':'') + '">' + sp.min + ' cm</span></div>' +
+        '<div class="sp-stat-row"><span class="k">Máximo</span><span class="v' + (lim.sup!==null&&sp.max>lim.sup?' out':'') + '">' + sp.max + ' cm</span></div>' +
+        '<div class="sp-stat-row"><span class="k">Medições</span><span class="v">' + sp.n + '</span></div>';
+      if (hasLim) r += '<div class="sp-stat-row"><span class="k">Fora dos limites</span><span class="v' + (outN>0?' out':'') + '">' + outN + ' de ' + sp.n + '</span></div>';
+      if (lim.sup!==null) r += '<div class="sp-stat-row"><span class="k" style="color:#2a7a20">▲ Lim. superior</span><span class="v" style="color:#2a7a20">' + lim.sup + ' cm</span></div>';
+      if (lim.inf!==null) r += '<div class="sp-stat-row"><span class="k" style="color:#b02020">▼ Lim. inferior</span><span class="v" style="color:#b02020">' + lim.inf + ' cm</span></div>';
+      return r + '</div>';
     }
 
     const savedAt = new Date(snap.savedAt);
     const savedStr = savedAt.toLocaleDateString('pt-BR') + ' ' + savedAt.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
 
-    det.innerHTML = `
-      <div class="card">
-        <div style="margin-bottom:14px">
-          <div class="res-name">${snap.cliente||'—'}</div>
-          <div class="res-meta">${snap.talhao||'—'} · ${fmtDate(snap.data)} · ${snap.tecnico||'—'}</div>
-          <div class="tags">
-            <span class="tag">${snap.linhas} linha(s)</span>
-            ${snap.vel?`<span class="tag">${snap.vel} km/h</span>`:''}
-            <span class="tag">${snap.terreno}</span>
-            <span class="tag">${snap.clima}</span>
-          </div>
-          <div style="font-size:11px;color:var(--text2);margin-top:8px">💾 Salvo em ${savedStr}</div>
-        </div>
+    det.innerHTML =
+      '<div class="card">' +
+        '<div style="margin-bottom:14px">' +
+          '<div class="res-name">' + (snap.cliente||'—') + '</div>' +
+          '<div class="res-meta">' + (snap.talhao||'—') + ' · ' + fmtDate(snap.data) + ' · ' + (snap.tecnico||'—') + '</div>' +
+          '<div class="tags">' +
+            '<span class="tag">' + snap.linhas + ' linha(s)</span>' +
+            (snap.vel ? '<span class="tag">' + snap.vel + ' km/h</span>' : '') +
+            '<span class="tag">' + snap.terreno + '</span>' +
+            '<span class="tag">' + snap.clima + '</span>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--text2);margin-top:8px">💾 Salvo em ' + savedStr + '</div>' +
+        '</div>' +
+        '<div class="divider"></div>' +
+        '<div class="section-header">Assertividade</div>' +
+        '<div class="total-summary">Total avaliado: <strong>' + total + '</strong> plantas</div>' +
+        '<div class="res-grid">' + cardsHTML + '</div>' +
+        histLineBreak +
+        '<div class="divider"></div>' +
+        '<div class="section-header">Espaçamento entre plantas</div>' +
+        spCard(spP, limP) +
+        '<div class="divider"></div>' +
+        '<div class="section-header">Espaçamento entre linhas</div>' +
+        spCard(spL, limL) +
+        (snap.obs ? '<div class="divider"></div><div class="section-header">Observações</div><div class="obs-box">' + snap.obs + '</div>' : '') +
+        '<div class="divider"></div>' +
+        '<button class="btn-next hist-edit-btn" data-snap-id="' + snap.id + '" style="margin-top:0">✏️ Editar este relatório</button>' +
+      '</div>';
 
-        <div class="divider"></div>
-        <div class="section-header">Assertividade</div>
-        <div class="total-summary">Total avaliado: <strong>${total}</strong> plantas</div>
-        <div class="res-grid">${cardsHTML}</div>
-        ${histLineBreak}
-
-        <div class="divider"></div>
-        <div class="section-header">Espaçamento entre plantas</div>
-        ${statsCardHTML(spP, limP)}
-
-        <div class="divider"></div>
-        <div class="section-header">Espaçamento entre linhas</div>
-        ${statsCardHTML(spL, limL)}
-
-        ${snap.obs?`<div class="divider"></div><div class="section-header">Observações</div><div class="obs-box">${snap.obs}</div>`:''}
-
-      <div class="divider"></div>
-      <button class="btn-next hist-edit-btn" data-snap-id="${snap.id}" style="margin-top:0">
-        ✏️ Editar este relatório
-      </button>
-    </div>`;
-
-    // Bind edit button
     det.querySelector('.hist-edit-btn').addEventListener('click', function() {
       const s = loadHistory().find(x => x.id == this.dataset.snapId);
       if (!s) return;
@@ -1447,6 +1388,7 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
       }
     });
   }
+
 
   function deleteHistoryItem(id) {
     let hist = loadHistory();

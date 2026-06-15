@@ -1,4 +1,7 @@
-const CACHE = 'irricheck-v2';
+// Mude este número a cada atualização do app
+const VERSION = '1.0.2';
+const CACHE = 'irricheck-' + VERSION;
+
 const FILES = [
   './',
   './index.html',
@@ -8,9 +11,9 @@ const FILES = [
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(FILES).catch(()=>{}))
+    caches.open(CACHE).then(c => c.addAll(FILES).catch(() => {}))
   );
-  self.skipWaiting();
+  self.skipWaiting(); // ativa imediatamente sem esperar fechar
 });
 
 self.addEventListener('activate', e => {
@@ -19,7 +22,7 @@ self.addEventListener('activate', e => {
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
     )
   );
-  self.clients.claim();
+  self.clients.claim(); // assume controle imediato de todas as abas
 });
 
 self.addEventListener('fetch', e => {

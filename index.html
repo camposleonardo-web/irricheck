@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>IrriCheck — Agricef</title>
-<!-- APP VERSION: 1.0.6 -->
+<!-- APP VERSION: 1.0.7 -->
 <meta name="description" content="Avaliação de assertividade e espaçamento do irrigador de mudas de eucalipto">
 <meta name="theme-color" content="#2d6a1f">
 <meta name="mobile-web-app-capable" content="yes">
@@ -140,8 +140,27 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
 
 .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 .print-page-title { display: none; }
-.print-page { margin-bottom: 0; }
 .pdf-header { display: none; }
+.print-page {
+  margin-bottom: 0;
+  padding-bottom: 8px;
+}
+.print-page + .print-page {
+  border-top: 3px dashed var(--border2);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.page-screen-title {
+  font-family: inherit;
+  font-size: 13px; font-weight: 700;
+  color: var(--green-mid);
+  letter-spacing: 0.07em; text-transform: uppercase;
+  background: var(--green-light);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px; margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.page-screen-title span { font-size: 11px; color: var(--text2); font-weight: 500; text-transform: none; letter-spacing: 0; }
 
 /* RESUMO */
 .res-name { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
@@ -192,7 +211,7 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
 
 @media print {
   /* Hide everything except resumo */
-  header, .tabs, .btn-next, .btn-reset-full, .action-grid, .share-status,
+  header, .tabs, .btn-next, .btn-reset-full, .action-grid, .share-status, .page-screen-title,
   .edit-toggle, .fields-editor, button, .add-sp-btn, .add-field-row,
   .limits-box, #btn-reset, .hist-edit-btn,
   .section-header, .divider { display: none !important; }
@@ -1027,6 +1046,7 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
       '<!-- PAGE 1: PER-LINE ASSERTIVIDADE -->' +
       '<div class="print-page">' +
         pdfHeader('Página 1 / ' + totalPages, 'Assertividade por Linha', fmtDate(data) + ' · ' + cliente + ' · ' + talhao) +
+        '<div class="page-screen-title">🎯 Assertividade por Linha <span>' + fmtDate(data) + ' · ' + cliente + '</span></div>' +
         metaBlock +
         '<div class="total-summary">Total geral: <strong>' + total + '</strong> plantas</div>' +
         perLineHTML +
@@ -1036,6 +1056,7 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
         '<!-- PAGE 2: GLOBAL ASSERTIVIDADE -->' +
         '<div class="print-page">' +
           pdfHeader('Página 2 / 4', 'Assertividade Global', fmtDate(data) + ' · ' + cliente) +
+          '<div class="page-screen-title">📊 Assertividade Global <span>' + fmtDate(data) + ' · ' + cliente + '</span></div>' +
           '<div class="total-summary">Total geral: <strong>' + total + '</strong> plantas</div>' +
           '<div class="res-grid">' + cardsHTML + '</div>' +
           (total > 0 ? '<div class="chart-card"><div class="chart-title">Global — Distribuição (todas as linhas)</div><div class="pie-wrap"><canvas id="chart-pie-global"></canvas></div></div>' : '') +
@@ -1046,6 +1067,7 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
       '<!-- PAGE ' + page2label + ': ESPAÇAMENTO ENTRE LINHAS -->' +
       '<div class="print-page">' +
         pdfHeader('Página ' + page2label + ' / ' + totalPages, 'Espaçamento entre Linhas', fmtDate(data) + ' · ' + cliente) +
+        '<div class="page-screen-title">📏 Espaçamento entre Linhas <span>' + fmtDate(data) + ' · ' + cliente + '</span></div>' +
         statsCardHTML(spL, limL) +
         (spL ? '<div class="chart-card"><div class="chart-title">Medições — entre linhas (cm)</div><canvas id="chart-linhas"></canvas></div>' : '<p style="color:var(--text2);font-size:14px">Nenhuma medição registrada.</p>') +
       '</div>' +
@@ -1053,6 +1075,7 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
       '<!-- PAGE ' + page3label + ': ESPAÇAMENTO ENTRE PLANTAS -->' +
       '<div class="print-page">' +
         pdfHeader('Página ' + page3label + ' / ' + totalPages, 'Espaçamento entre Plantas', fmtDate(data) + ' · ' + cliente) +
+        '<div class="page-screen-title">📐 Espaçamento entre Plantas <span>' + fmtDate(data) + ' · ' + cliente + '</span></div>' +
         statsCardHTML(spP, limP) +
         (spP ? '<div class="chart-card"><div class="chart-title">Medições — entre plantas (cm)</div><canvas id="chart-plantas"></canvas></div>' : '<p style="color:var(--text2);font-size:14px">Nenhuma medição registrada.</p>') +
       '</div>' +

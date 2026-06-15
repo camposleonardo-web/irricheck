@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>IrriCheck — Agricef</title>
-<!-- APP VERSION: 1.0.4 -->
+<!-- APP VERSION: 1.0.5 -->
 <meta name="description" content="Avaliação de assertividade e espaçamento do irrigador de mudas de eucalipto">
 <meta name="theme-color" content="#2d6a1f">
 <meta name="mobile-web-app-capable" content="yes">
@@ -486,8 +486,11 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
     const btn = e.target.closest('.tab-btn');
     if (btn && btn.dataset.tab) showTab(btn.dataset.tab);
   });
-  document.querySelectorAll('[data-goto]').forEach(btn =>
-    btn.addEventListener('click', function () { showTab(this.dataset.goto); }));
+  // Event delegation for data-goto buttons - works for static and dynamic buttons
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-goto]');
+    if (btn) showTab(btn.dataset.goto);
+  });
 
   // ── EDITOR ────────────────────────────────────────────
   document.getElementById('toggle-editor-btn').addEventListener('click', function () {

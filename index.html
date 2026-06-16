@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>IrriCheck — Agricef</title>
-<!-- APP VERSION: 1.0.7 -->
+<!-- APP VERSION: 1.0.8 -->
 <meta name="description" content="Avaliação de assertividade e espaçamento do irrigador de mudas de eucalipto">
 <meta name="theme-color" content="#2d6a1f">
 <meta name="mobile-web-app-capable" content="yes">
@@ -881,39 +881,72 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
   function shareWhatsApp() {
     syncSpValues('plantas'); syncSpValues('linhas');
     const gv = id => (document.getElementById(id)||{}).value||'';
-    const fmtDate = d => { if(!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; };
-    const total = fields.reduce((s,f)=>s+f.count,0);
-    const spP=calcStats(espPlantas), spL=calcStats(espLinhas);
-    const limP=getLimits('plantas'), limL=getLimits('linhas');
+    const fmt = d => { if(!d) return '\u2014'; const [y,m,dd]=d.split('-'); return dd+'/'+m+'/'+y; };
+    const nL = getNLines();
+    const lnames = LINE_NAMES[nL] || LINE_NAMES[1];
+    const waTotal = getTotalCount();
+    const spP = calcStats(espPlantas), spL = calcStats(espLinhas);
+    const limP = getLimits('plantas'), limL = getLimits('linhas');
+    const NL = '\n';
+    const SEP = '\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f\u254f' + NL;
+
+    const cliente = gv('f-cliente') || '\u2014';
+    const talhao  = gv('f-talhao')  || '\u2014';
+    const tecnico = gv('f-tecnico') || '\u2014';
+    const linhas  = gv('f-linhas')  || '\u2014';
+    const vel     = gv('f-vel');
+    const terreno = gv('f-terreno') || '\u2014';
+    const clima   = gv('f-clima')   || '\u2014';
+    const clone   = gv('f-clone');
+    const obs     = gv('f-obs');
+
     let txt = '';
-    txt += `🌱 *IrriCheck — Avaliação de Campo*\n`;
-    txt += `━━━━━━━━━━━━━━━━━━━━\n`;
-    txt += `📋 *Cliente:* ${gv('f-cliente')||'—'}\n`;
-    txt += `🗺 *Talhão:* ${gv('f-talhao')||'—'}\n`;
-    txt += `📅 *Data:* ${fmtDate(gv('f-data'))}\n`;
-    txt += `👤 *Técnico:* ${gv('f-tecnico')||'—'}\n`;
-    txt += `⚙️ *Linhas:* ${gv('f-linhas')} | *Vel.:* ${gv('f-vel')||'—'} km/h\n`;
-    txt += `🌤 ${gv('f-terreno')} | ${gv('f-clima')}\n`;
-    txt += `━━━━━━━━━━━━━━━━━━━━\n`;
-    txt += `🎯 *ASSERTIVIDADE — ${total} plantas*\n`;
-    fields.forEach(f => { const pct=total>0?(f.count/total*100).toFixed(1):'0.0'; txt+=`  • ${f.name}: *${f.count}* (${pct}%)\n`; });
+    txt += '\uD83C\uDF31 *IrriCheck \u2014 Avalia\u00e7\u00e3o de Campo*' + NL;
+    txt += SEP;
+    txt += '\uD83D\uDCCB *Cliente:* ' + cliente + NL;
+    txt += '\uD83D\uDDFA *Talh\u00e3o:* ' + talhao + NL;
+    txt += '\uD83D\uDCC5 *Data:* ' + fmt(gv('f-data')) + NL;
+    txt += '\uD83D\uDC64 *T\u00e9cnico:* ' + tecnico + NL;
+    txt += '\u2699\uFE0F *Linhas:* ' + linhas + (vel ? ' | *Vel.:* ' + vel + ' km/h' : '') + NL;
+    txt += '\uD83C\uDF24 ' + terreno + ' | ' + clima + NL;
+    if (clone) txt += '\uD83C\uDF3F *Clone:* ' + clone + NL;
+    txt += SEP;
+    txt += '\uD83C\uDFAF *ASSERTIVIDADE \u2014 ' + waTotal + ' plantas*' + NL;
+    lnames.forEach(function(lname, li) {
+      const lTotal = getLineCount(li);
+      txt += '  [' + lname + '] ' + lTotal + ' plantas' + NL;
+      fields.forEach(function(f) {
+        const cnt = (counts[li] && counts[li][f.id]) || 0;
+        if (cnt > 0) {
+          const pct = lTotal > 0 ? (cnt/lTotal*100).toFixed(1) : '0.0';
+          txt += '    \u2022 ' + (f.name||'\u2014') + ': *' + cnt + '* (' + pct + '%)' + NL;
+        }
+      });
+    });
+    if (nL > 1) {
+      txt += '  _Global:_' + NL;
+      fields.forEach(function(f) {
+        const cnt = Object.keys(counts).reduce(function(s,l){ return s+((counts[l]&&counts[l][f.id])||0); }, 0);
+        const pct = waTotal > 0 ? (cnt/waTotal*100).toFixed(1) : '0.0';
+        txt += '    \u2022 ' + (f.name||'\u2014') + ': *' + cnt + '* (' + pct + '%)' + NL;
+      });
+    }
     if (spP) {
-      const outP=spP.vals.filter(v=>isOutOfRange(v,limP)).length;
-      txt+=`━━━━━━━━━━━━━━━━━━━━\n`;
-      txt+=`📏 *ESPAÇ. ENTRE PLANTAS*\n`;
-      txt+=`  • Média: *${spP.avg} cm* | Mín: ${spP.min} | Máx: ${spP.max} cm\n`;
-      if(limP.sup!==null||limP.inf!==null) txt+=`  • Fora dos limites: *${outP} de ${spP.n}*\n`;
+      const outP = spP.vals.filter(function(v){ return isOutOfRange(v,limP); }).length;
+      txt += SEP;
+      txt += '\uD83D\uDCCF *ESP. ENTRE PLANTAS*' + NL;
+      txt += '  \u2022 M\u00e9dia: *' + spP.avg + ' cm* | M\u00edn: ' + spP.min + ' | M\u00e1x: ' + spP.max + ' cm' + NL;
+      if (limP.sup!==null||limP.inf!==null) txt += '  \u2022 Fora dos limites: *' + outP + ' de ' + spP.n + '*' + NL;
     }
     if (spL) {
-      const outL=spL.vals.filter(v=>isOutOfRange(v,limL)).length;
-      txt+=`━━━━━━━━━━━━━━━━━━━━\n`;
-      txt+=`📐 *ESPAÇ. ENTRE LINHAS*\n`;
-      txt+=`  • Média: *${spL.avg} cm* | Mín: ${spL.min} | Máx: ${spL.max} cm\n`;
-      if(limL.sup!==null||limL.inf!==null) txt+=`  • Fora dos limites: *${outL} de ${spL.n}*\n`;
+      const outL = spL.vals.filter(function(v){ return isOutOfRange(v,limL); }).length;
+      txt += SEP;
+      txt += '\uD83D\uDCD0 *ESP. ENTRE LINHAS*' + NL;
+      txt += '  \u2022 M\u00e9dia: *' + spL.avg + ' cm* | M\u00edn: ' + spL.min + ' | M\u00e1x: ' + spL.max + ' cm' + NL;
+      if (limL.sup!==null||limL.inf!==null) txt += '  \u2022 Fora dos limites: *' + outL + ' de ' + spL.n + '*' + NL;
     }
-    const obs=gv('f-obs');
-    if(obs){ txt+=`━━━━━━━━━━━━━━━━━━━━\n`; txt+=`📝 *Obs:* ${obs}\n`; }
-    txt+=`━━━━━━━━━━━━━━━━━━━━\n_IrriCheck_`;
+    if (obs) { txt += SEP; txt += '\uD83D\uDCDD *Obs:* ' + obs + NL; }
+    txt += SEP + '_IrriCheck \u2014 Agricef_';
     window.open('https://wa.me/?text='+encodeURIComponent(txt), '_blank');
   }
 
@@ -1013,11 +1046,14 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
         </div>
       </div>`;
 
-    // Build per-line HTML
-    let perLineHTML = '';
+    // Build per-line pages: one print-page per line
+    let perLinePages = '';
+    // totalPages = nLines (one per line) + (global if >1) + 2 spacing = nLines+1+2 or 1+2
+    const totalPages = nLines > 1 ? nLines + 3 : 3;
     for (let li = 0; li < nLines; li++) {
       const lname = lineNames[li];
       const lTotal = getLineCount(li);
+      const pageNum = li + 1;
       const lCards = fields.map(f => {
         const cnt = (counts[li] && counts[li][f.id]) || 0;
         const pct = lTotal > 0 ? Math.round(cnt / lTotal * 100) : 0;
@@ -1027,36 +1063,29 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
           '<div class="l" style="color:' + f.color + '">' + (f.name||'—') + '</div>' +
           '</div>';
       }).join('');
-      perLineHTML += '<div style="margin-bottom:14px">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px">' +
-          '<span style="font-size:13px;font-weight:700;color:var(--green-mid);letter-spacing:.06em;text-transform:uppercase">' + lname + '</span>' +
-          '<span style="flex:1;height:1px;background:var(--border)"></span>' +
-          '<span style="font-size:12px;color:var(--text2)">' + lTotal + ' plantas</span>' +
-        '</div>' +
-        '<div class="res-grid">' + lCards + '</div>' +
-        (lTotal > 0 ? '<div class="chart-card"><div class="chart-title">' + lname + ' — Distribuição</div><div class="pie-wrap"><canvas id="chart-pie-' + li + '"></canvas></div></div>' : '') +
+      perLinePages +=
+        '<div class="print-page">' +
+          pdfHeader('Página ' + pageNum + ' / ' + totalPages, 'Assertividade — ' + lname, fmtDate(data) + ' · ' + cliente + ' · ' + talhao) +
+          '<div class="page-screen-title">🎯 Linha: ' + lname + ' <span>' + fmtDate(data) + ' · ' + cliente + ' — ' + lTotal + ' plantas</span></div>' +
+          (li === 0 ? metaBlock : '') +
+          '<div class="total-summary">Total avaliado — ' + lname + ': <strong>' + lTotal + '</strong> plantas</div>' +
+          '<div class="res-grid">' + lCards + '</div>' +
+          (lTotal > 0 ? '<div class="chart-card"><div class="chart-title">' + lname + ' — Distribuição</div><div class="pie-wrap"><canvas id="chart-pie-' + li + '"></canvas></div></div>' : '') +
         '</div>';
     }
 
-    const totalPages = nLines > 1 ? 4 : 3;
-    const page2label = nLines > 1 ? 3 : 2;
-    const page3label = nLines > 1 ? 4 : 3;
+    const globalPageNum = nLines + 1;
+    const spacingLPageNum = nLines > 1 ? nLines + 2 : 2;
+    const spacingPPageNum = nLines > 1 ? nLines + 3 : 3;
 
     document.getElementById('resumo-body').innerHTML =
-      '<!-- PAGE 1: PER-LINE ASSERTIVIDADE -->' +
-      '<div class="print-page">' +
-        pdfHeader('Página 1 / ' + totalPages, 'Assertividade por Linha', fmtDate(data) + ' · ' + cliente + ' · ' + talhao) +
-        '<div class="page-screen-title">🎯 Assertividade por Linha <span>' + fmtDate(data) + ' · ' + cliente + '</span></div>' +
-        metaBlock +
-        '<div class="total-summary">Total geral: <strong>' + total + '</strong> plantas</div>' +
-        perLineHTML +
-      '</div>' +
+      perLinePages +
 
       (nLines > 1 ?
         '<!-- PAGE 2: GLOBAL ASSERTIVIDADE -->' +
         '<div class="print-page">' +
-          pdfHeader('Página 2 / 4', 'Assertividade Global', fmtDate(data) + ' · ' + cliente) +
-          '<div class="page-screen-title">📊 Assertividade Global <span>' + fmtDate(data) + ' · ' + cliente + '</span></div>' +
+          pdfHeader('Página ' + globalPageNum + ' / ' + totalPages, 'Assertividade Global', fmtDate(data) + ' · ' + cliente) +
+          '<div class="page-screen-title">📊 Assertividade Global <span>' + fmtDate(data) + ' · ' + cliente + ' — ' + total + ' plantas</span></div>' +
           '<div class="total-summary">Total geral: <strong>' + total + '</strong> plantas</div>' +
           '<div class="res-grid">' + cardsHTML + '</div>' +
           (total > 0 ? '<div class="chart-card"><div class="chart-title">Global — Distribuição (todas as linhas)</div><div class="pie-wrap"><canvas id="chart-pie-global"></canvas></div></div>' : '') +
@@ -1064,17 +1093,17 @@ textarea { resize: vertical; min-height: 70px; font-size: 15px; }
         '</div>'
       : '') +
 
-      '<!-- PAGE ' + page2label + ': ESPAÇAMENTO ENTRE LINHAS -->' +
+      '<!-- ESPAÇAMENTO ENTRE LINHAS -->' +
       '<div class="print-page">' +
-        pdfHeader('Página ' + page2label + ' / ' + totalPages, 'Espaçamento entre Linhas', fmtDate(data) + ' · ' + cliente) +
+        pdfHeader('Página ' + spacingLPageNum + ' / ' + totalPages, 'Espaçamento entre Linhas', fmtDate(data) + ' · ' + cliente) +
         '<div class="page-screen-title">📏 Espaçamento entre Linhas <span>' + fmtDate(data) + ' · ' + cliente + '</span></div>' +
         statsCardHTML(spL, limL) +
         (spL ? '<div class="chart-card"><div class="chart-title">Medições — entre linhas (cm)</div><canvas id="chart-linhas"></canvas></div>' : '<p style="color:var(--text2);font-size:14px">Nenhuma medição registrada.</p>') +
       '</div>' +
 
-      '<!-- PAGE ' + page3label + ': ESPAÇAMENTO ENTRE PLANTAS -->' +
+      '<!-- ESPAÇAMENTO ENTRE PLANTAS -->' +
       '<div class="print-page">' +
-        pdfHeader('Página ' + page3label + ' / ' + totalPages, 'Espaçamento entre Plantas', fmtDate(data) + ' · ' + cliente) +
+        pdfHeader('Página ' + spacingPPageNum + ' / ' + totalPages, 'Espaçamento entre Plantas', fmtDate(data) + ' · ' + cliente) +
         '<div class="page-screen-title">📐 Espaçamento entre Plantas <span>' + fmtDate(data) + ' · ' + cliente + '</span></div>' +
         statsCardHTML(spP, limP) +
         (spP ? '<div class="chart-card"><div class="chart-title">Medições — entre plantas (cm)</div><canvas id="chart-plantas"></canvas></div>' : '<p style="color:var(--text2);font-size:14px">Nenhuma medição registrada.</p>') +
